@@ -8405,7 +8405,14 @@ bool ACodec::ExecutingState::onOMXEvent(
     switch (event) {
         case OMX_EventPortSettingsChanged:
         {
-            CHECK_EQ(data1, (OMX_U32)kPortIndexOutput);
+            if (data1 != (OMX_U32)kPortIndexOutput) {
+                // Some legacy components (e.g. NVIDIA's tegra decoders) also
+                // report settings changes on the input port. Nothing to
+                // reconfigure there, so don't abort the media server.
+                ALOGW("[%s] ignoring OMX_EventPortSettingsChanged on port %u (0x%08x)",
+                        mCodec->mComponentName.c_str(), data1, data2);
+                return true;
+            }
 
             mCodec->onOutputFormatChanged();
 
