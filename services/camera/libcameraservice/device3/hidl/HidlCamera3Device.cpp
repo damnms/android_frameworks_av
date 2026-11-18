@@ -1641,14 +1641,11 @@ status_t HidlCamera3Device::HidlHalInterface::processBatchCaptureRequests(
 
     res = HidlProviderInfo::mapToStatusT(status);
     if (res == OK) {
-        if (mHidlSession->isRemote()) {
-            // Only close acquire fence FDs when the HIDL transaction succeeds (so the FDs have been
-            // sent to camera HAL processes)
-            cleanupNativeHandles(&handlesCreated, /*closeFd*/true);
-        } else {
-            // In passthrough mode the FDs are now owned by HAL
-            cleanupNativeHandles(&handlesCreated);
-        }
+        // Only close acquire fence FDs when the HIDL transaction succeeds (so the FDs have been
+        // sent to camera HAL processes). In passthrough mode the HAL wrapper
+        // (HandleImporter::importFence) hands the HAL a dup() of each fence, so the original
+        // FDs are still ours and must be closed as well, or every request leaks them.
+        cleanupNativeHandles(&handlesCreated, /*closeFd*/true);
     } else {
         mBufferRecords.popInflightBuffers(inflightBuffers);
         cleanupNativeHandles(&handlesCreated);
