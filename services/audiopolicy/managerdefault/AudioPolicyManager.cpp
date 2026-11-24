@@ -198,8 +198,11 @@ status_t AudioPolicyManager::setDeviceConnectionStateInt(const sp<DeviceDescript
         // handle output device connection
         case AUDIO_POLICY_DEVICE_STATE_AVAILABLE: {
             if (index >= 0) {
+                // The device is connected as requested. A restarted framework
+                // (FDE boot) reports it again; an error made AudioService
+                // drop it, and a later disconnect never reached the policy.
                 ALOGW("%s() device already connected: %s", __func__, device->toString().c_str());
-                return INVALID_OPERATION;
+                return NO_ERROR;
             }
             ALOGV("%s() connecting device %s format %x",
                     __func__, device->toString().c_str(), device->getEncodedFormat());
