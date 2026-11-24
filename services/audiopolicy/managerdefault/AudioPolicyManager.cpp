@@ -7008,7 +7008,22 @@ uint32_t AudioPolicyManager::setOutputDevices(const sp<SwAudioOutputDescriptor>&
     //  AND force is not specified
     //  AND the output is connected by a valid audio patch.
     // Doing this check here allows the caller to call setOutputDevices() without conditions
-    if ((filteredDevices.isEmpty() || filteredDevices == prevDevices) && !force && outputRouted) {
+    // A device gets a new id each time it is connected, while it stays the
+    // same object. Keep the patch only if it still names the current ids,
+    // else clients that compare device ids (AAudio) see a device change.
+    bool patchHasCurrentIds = false;
+    ssize_t patchIndex = mAudioPatches.indexOfKey(outputDesc->getPatchHandle());
+    if (patchIndex >= 0) {
+        const struct audio_patch &patch = mAudioPatches.valueAt(patchIndex)->mPatch;
+        patchHasCurrentIds = patch.num_sinks == filteredDevices.size();
+        for (unsigned int i = 0; patchHasCurrentIds && i < patch.num_sinks; i++) {
+            patchHasCurrentIds = patch.sinks[i].type == AUDIO_PORT_TYPE_DEVICE &&
+                    filteredDevices.getDeviceFromId(patch.sinks[i].id) != nullptr;
+        }
+    }
+    if ((filteredDevices.isEmpty() ||
+                (filteredDevices == prevDevices && patchHasCurrentIds)) &&
+            !force && outputRouted) {
         ALOGV("%s setting same device %s or null device, force=%d, patch handle=%d", __func__,
               filteredDevices.toString().c_str(), force, outputDesc->getPatchHandle());
         if (requiresVolumeCheck && !filteredDevices.isEmpty()) {
