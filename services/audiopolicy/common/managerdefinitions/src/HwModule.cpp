@@ -366,7 +366,11 @@ sp<DeviceDescriptor> HwModuleCollection::getDeviceDescriptor(const audio_devices
                 moduleDevice->setEncodedFormat(encodedFormat);
             }
             if (allowToCreate) {
-                moduleDevice->attach(hwModule);
+                // attach() gives the device a new id; a device that is
+                // connected again while still connected keeps its id
+                if (!moduleDevice->isAttached()) {
+                    moduleDevice->attach(hwModule);
+                }
                 // Name may be overwritten, restored on detach.
                 moduleDevice->setAddress(devAddress.string());
                 // Name may be overwritten, restored on detach.
