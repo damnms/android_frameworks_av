@@ -457,7 +457,13 @@ status_t Camera3OutputStream::returnBufferCheckedLocked(
         }
         // Fix CameraBlob id type discrepancy between HIDL and AIDL, details : http://b/229688810
         if (getFormat() == HAL_PIXEL_FORMAT_BLOB && getDataSpace() == HAL_DATASPACE_V0_JFIF) {
-            if (mIPCTransport == IPCTransport::HIDL) {
+            // Legacy HALs may still hold their own CPU lock on the buffer
+            // when they return it (the nvidia t124 HAL does); locking it here
+            // then waits forever in gralloc. Such devices can skip the fixup,
+            // apps then take the JPEG size from the buffer.
+            static const bool skipHidlJpegBlobFixup = property_get_bool(
+                    "ro.vendor.camera.skip_hidl_jpeg_blob_fixup", false);
+            if (mIPCTransport == IPCTransport::HIDL && !skipHidlJpegBlobFixup) {
                 fixUpHidlJpegBlobHeader(anwBuffer, anwReleaseFence);
             }
             // If this is a JPEG output, and image dump mask is set, save image to
