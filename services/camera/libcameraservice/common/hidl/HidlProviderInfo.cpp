@@ -661,6 +661,21 @@ HidlProviderInfo::HidlDeviceInfo3::HidlDeviceInfo3(
                 __FUNCTION__, strerror(-res), res);
     }
 
+    // Some legacy HALs advertise video stabilization they cannot run at
+    // full rate (the nvidia t124 HAL halves the frame rate with a video
+    // stream). Such devices can hide it, apps then record without it.
+    static const bool disableVideoStabilization = property_get_bool(
+            "ro.vendor.camera.disable_video_stabilization", false);
+    if (disableVideoStabilization) {
+        const uint8_t stabilizationOff = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
+        res = mCameraCharacteristics.update(
+                ANDROID_CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES, &stabilizationOff, 1);
+        if (OK != res) {
+            ALOGE("%s: Unable to hide video stabilization: %s (%d)",
+                    __FUNCTION__, strerror(-res), res);
+        }
+    }
+
     camera_metadata_entry flashAvailable =
             mCameraCharacteristics.find(ANDROID_FLASH_INFO_AVAILABLE);
     if (flashAvailable.count == 1 &&
