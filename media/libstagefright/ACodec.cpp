@@ -4582,21 +4582,32 @@ status_t ACodec::setupAVCEncoderParameters(const sp<AMessage> &msg) {
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
 
     int32_t profile;
+    bool useRequestedProfile = false;
     if (msg->findInt32("profile", &profile)) {
         int32_t level;
         if (!msg->findInt32("level", &level)) {
-            return INVALID_OPERATION;
+            // CameraX takes the profile from EncoderProfiles and sets no
+            // level; derive the level from the stream instead of failing.
+            int32_t width = 0, height = 0;
+            (void)msg->findInt32("width", &width);
+            (void)msg->findInt32("height", &height);
+            level = getAVCLevelFor(width, height, (int)frameRate, bitrate,
+                    static_cast<OMX_VIDEO_AVCPROFILEEXTTYPE>(profile));
         }
 
         err = verifySupportForProfileAndLevel(kPortIndexOutput, profile, level);
 
-        if (err != OK) {
-            return err;
+        if (err == OK) {
+            h264type.eProfile = static_cast<OMX_VIDEO_AVCPROFILETYPE>(profile);
+            h264type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(level);
+            useRequestedProfile = true;
+        } else {
+            ALOGW("[%s] profile %d level %d not supported (%d), using the default",
+                    mComponentName.c_str(), profile, level, err);
+            err = OK;
         }
-
-        h264type.eProfile = static_cast<OMX_VIDEO_AVCPROFILETYPE>(profile);
-        h264type.eLevel = static_cast<OMX_VIDEO_AVCLEVELTYPE>(level);
-    } else {
+    }
+    if (!useRequestedProfile) {
         h264type.eProfile = OMX_VIDEO_AVCProfileBaseline;
 #if 0   /* DON'T YET DEFAULT TO HIGHEST PROFILE */
         // Use largest supported profile for AVC recording if profile is not specified.
